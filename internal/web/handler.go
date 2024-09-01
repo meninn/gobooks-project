@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -68,4 +69,49 @@ func (h *BookHandlers) GetBookByID(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(book)
+}
+
+func (h *BookHandlers) UpdateBook(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		log.Println("Invalid book ID:", idStr, "Error:", err)
+		http.Error(w, "invalid book ID", http.StatusBadRequest)
+		return
+	}
+
+	var book service.Book
+	if err := json.NewDecoder(r.Body).Decode(&book); err != nil {
+		log.Println("Error decoding request payload:", err)
+		http.Error(w, "invalid request payload", http.StatusBadRequest)
+		return
+	}
+	book.ID = id
+
+	if err := h.service.UpdateBook(&book); err != nil {
+		log.Println("Error updating book with ID", id, "in database:", err)
+		http.Error(w, "failed to update book", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(book)
+}
+
+func (h *BookHandlers) DeleteBook(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		log.Println("Invalid book ID:", idStr, "Error:", err)
+		http.Error(w, "invalid book ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.service.DeleteBook(id); err != nil {
+		log.Println("Error deleting book with ID", id, "from database:", err)
+		http.Error(w, "failed to delete book", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
